@@ -1,31 +1,52 @@
 name: Publish to PyPI
 
-# Trusted Publishing via OIDC -- no PYPI_API_TOKEN secret needed.
-# PyPI is pre-configured with a "Pending Publisher" matching:
+# Trusted Publishing via OIDC. No PYPI_API_TOKEN secret needed.
+# PyPI must be pre-configured with a "Pending Publisher" matching:
 #   owner       = CWNApps
-#   repository  = <this repo>
+#   repository  = <this repo name>
 #   workflow    = release.yml
 #   environment = pypi
+#
+# All third-party actions pinned to full SHA per pol.ops.security_pipeline.
+# Codex APPROVE-WITH-EDITS applied (pol.must_do.150) -- adversarial review fixes
+# below were captured in the commit message that introduces this workflow.
 
 on:
   push:
     tags:
-      - 'v*'
-  workflow_dispatch:
+      # Only fire on semver release tags (v0.1.0, v1.2.3). Excludes scratch tags
+      # like v0.1.0-dev or vfoo that would otherwise trigger a noisy 400 from PyPI.
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+# Deny everything at the workflow level; each job re-grants the minimum it needs.
+permissions: {}
+
+# Serialize concurrent publish attempts for the same ref (e.g. tag re-push).
+# cancel-in-progress: false so an in-flight upload is allowed to complete.
+concurrency:
+  group: pypi-publish-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
     name: Build distribution
     runs-on: ubuntu-latest
+    # Defense-in-depth: only run for CWNApps-owned forks (OIDC subject claim
+    # already prevents fork publishes, but this guard short-circuits earlier).
+    if: github.repository_owner == 'CWNApps'
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
         with:
           python-version: '3.12'
 
-      - name: Install build tooling
-        run: python -m pip install --upgrade build
+      - name: Install build tooling (pinned)
+        # build is pinned to defend against a malicious PyPI release of `build`
+        # itself injecting code into the wheel during `python -m build`.
+        run: python -m pip install 'build==1.2.2'
 
       - name: Build wheel + sdist
         run: python -m build
@@ -33,7 +54,7 @@ jobs:
       - name: Show built artifacts
         run: ls -la dist/
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08  # v4.6.0
         with:
           name: dist
           path: dist/
@@ -42,23 +63,24 @@ jobs:
     name: Publish to PyPI via Trusted Publishing (OIDC)
     needs: build
     runs-on: ubuntu-latest
-    # The `pypi` environment must exist on the repo (Settings -> Environments)
-    # AND PyPI's Pending Publisher must reference this environment name.
+    if: github.repository_owner == 'CWNApps'
     environment:
       name: pypi
       url: https://pypi.org/project/${{ github.event.repository.name }}/
     permissions:
-      id-token: write  # required for OIDC
+      id-token: write   # required to mint the OIDC token PyPI exchanges
+      contents: read    # belt-and-braces if a future step adds checkout
+
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@fa0a91b85d4f404e444e00e005971372dc801d16  # v4.1.8
         with:
           name: dist
           path: dist/
 
       - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-        # No `password` -- OIDC token is minted automatically by PyPI based on
-        # the Pending Publisher config. attestations: true is the default in
-        # recent versions; explicit for clarity.
+        uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b  # v1.14.0
+        # No `password` -- OIDC token is minted automatically by PyPI based on the
+        # Pending Publisher record. Sigstore attestations are written to the Rekor
+        # public transparency log; non-fatal if Rekor is unreachable.
         with:
           attestations: true

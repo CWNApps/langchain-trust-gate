@@ -3,7 +3,7 @@ requires = ["setuptools>=64", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "langchain-trust-gate"
+name = "cwn-langchain-trust-gate"
 version = "0.1.0"
 description = "LangChain tools for Trust Gate post-quantum receipts (Ed25519 + ML-DSA-65, verifiable offline)."
 readme = "README.md"

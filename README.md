@@ -7,7 +7,7 @@ Trust Gate receipts are signed Ed25519 + ML-DSA-65 (FIPS 204) by the hosted MCP 
 ## Install
 
 ```bash
-pip install langchain-trust-gate
+pip install cwn-langchain-trust-gate
 ```
 
 ## Usage

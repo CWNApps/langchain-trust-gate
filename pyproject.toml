@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cwn-langchain-trust-gate"
-version = "0.1.0"
-description = "LangChain tools for Trust Gate post-quantum receipts (Ed25519 + ML-DSA-65, verifiable offline)."
+version = "0.2.0"
+description = "LangChain tools for Trust Gate post-quantum receipts — sovereignty gate, egress check, exit drill."
 readme = "README.md"
 license = {text = "Apache-2.0"}
 requires-python = ">=3.10"

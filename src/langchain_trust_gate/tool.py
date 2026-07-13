@@ -153,3 +153,90 @@ class VerifyReceiptTool(BaseTool):
         if require_pq is not None:
             args["require_pq"] = require_pq
         return _mcp_call("verify_receipt", args)
+
+
+# --- gate_decision (sovereignty v0.2.0) -------------------------------------------
+class GateDecisionInput(BaseModel):
+    action: str = Field(description="The action to evaluate (e.g., 'deploy', 'send_email').")
+    resource: str = Field(description="Target resource (e.g., 'prod/api', 'user-db').")
+    context: Dict[str, Any] = Field(description="Context dict for the decision (hashed in the receipt).")
+    phase: str = Field(default="PREVIEW",
+                       description="'PREVIEW' for risk assessment, 'COMMIT' to proceed with receipt.")
+    preview_id: Optional[str] = Field(default=None,
+                                      description="Required for COMMIT. Returned by the PREVIEW phase.")
+
+
+class GateDecisionTool(BaseTool):
+    """Two-phase decision gate: PREVIEW evaluates risk, COMMIT mints a receipt.
+
+    Models the PREVIEW->COMMIT pattern: every consequential action gets a risk
+    assessment first (PREVIEW), and only proceeds when the caller explicitly commits
+    with the preview_id from PREVIEW. Stateless -- the preview_id is deterministically
+    derived from the inputs.
+    """
+    name: str = "trust_gate_gate_decision"
+    description: str = (
+        "Two-phase decision gate. PREVIEW returns a risk assessment and preview_id "
+        "without acting. COMMIT requires the preview_id, verifies inputs match, "
+        "and mints a tamper-evident receipt. Stateless."
+    )
+    args_schema: Type[BaseModel] = GateDecisionInput
+
+    def _run(self, action: str, resource: str, context: Dict[str, Any],
+             phase: str = "PREVIEW", preview_id: Optional[str] = None,
+             **kwargs) -> Dict[str, Any]:
+        _ping_telemetry()
+        args: Dict[str, Any] = {
+            "action": action, "resource": resource,
+            "context": context, "phase": phase,
+        }
+        if preview_id is not None:
+            args["preview_id"] = preview_id
+        return _mcp_call("gate_decision", args)
+
+
+# --- check_egress (sovereignty v0.2.0) --------------------------------------------
+class CheckEgressInput(BaseModel):
+    destination: str = Field(description="Where data is being sent (e.g., 'openai.com').")
+    data_sample: str = Field(description="Sample of the data being sent (scanned for sensitivity).")
+    provider: str = Field(description="The provider/service receiving the data.")
+
+
+class CheckEgressTool(BaseTool):
+    """Classify outbound data sensitivity and gate egress with a receipt.
+
+    Scans the data_sample for sensitivity markers (heuristic) and classifies as
+    PUBLIC / INTERNAL / CONFIDENTIAL / RESTRICTED. RESTRICTED-class data is blocked.
+    """
+    name: str = "trust_gate_check_egress"
+    description: str = (
+        "Egress classification check. Scans data for sensitivity markers and "
+        "classifies as PUBLIC / INTERNAL / CONFIDENTIAL / RESTRICTED. Blocks "
+        "RESTRICTED-class egress. Returns classification + tamper-evident receipt."
+    )
+    args_schema: Type[BaseModel] = CheckEgressInput
+
+    def _run(self, destination: str, data_sample: str, provider: str,
+             **kwargs) -> Dict[str, Any]:
+        _ping_telemetry()
+        return _mcp_call("check_egress", {
+            "destination": destination, "data_sample": data_sample, "provider": provider,
+        })
+
+
+# --- run_exit_drill (sovereignty v0.2.0) ------------------------------------------
+class RunExitDrillTool(BaseTool):
+    """Check vendor exit readiness: local signing, local model, local data export.
+
+    Informational -- no side effects. Returns step-by-step results and a
+    tamper-evident receipt.
+    """
+    name: str = "trust_gate_run_exit_drill"
+    description: str = (
+        "Vendor exit readiness drill. Checks local signing key, local model "
+        "access, and local data export. Returns results + tamper-evident receipt."
+    )
+
+    def _run(self, **kwargs) -> Dict[str, Any]:
+        _ping_telemetry()
+        return _mcp_call("run_exit_drill", {})

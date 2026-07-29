@@ -28,8 +28,32 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  test:
+    name: Test before publishing
+    runs-on: ubuntu-latest
+    # A tag push publishes to PyPI, and a PyPI version can never be replaced --
+    # only yanked. So the suite gates the build rather than running beside it.
+    # Added after a sibling repo (trust-gate-mcp) was found to have shipped with
+    # an uncollectable suite for a month because nothing ever ran it in CI.
+    if: github.repository_owner == 'CWNApps'
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: actions/setup-python@0b93645e9fea7318ecaed2b359559ac225c90a2b  # v5.3.0
+        with:
+          python-version: '3.12'
+
+      - name: Install package + test extras
+        run: python -m pip install -e ".[test]"
+
+      - name: Run tests
+        run: python -m pytest tests/ -q
+
   build:
     name: Build distribution
+    needs: test
     runs-on: ubuntu-latest
     # Defense-in-depth: only run for CWNApps-owned forks (OIDC subject claim
     # already prevents fork publishes, but this guard short-circuits earlier).

@@ -38,6 +38,9 @@ export TRUST_GATE_URL="https://trust-gate-mcp.onrender.com"
 |---|---|
 | `trust_gate_mint_action_receipt` | Mint a post-quantum receipt for any consequential agent action. |
 | `trust_gate_verify_receipt` | Verify a Trust Gate receipt from the certificate alone. Defaults to PQ-required. |
+| `trust_gate_gate_decision` | Two-phase gate. PREVIEW assesses risk without acting; COMMIT verifies the inputs still match and mints a receipt carrying an execution permit. |
+| `trust_gate_check_egress` | Classify data PUBLIC / INTERNAL / CONFIDENTIAL / RESTRICTED before it leaves. Blocks RESTRICTED. |
+| `trust_gate_run_exit_drill` | Vendor exit-readiness drill. Informational, no side effects. |
 
 ## Telemetry
 

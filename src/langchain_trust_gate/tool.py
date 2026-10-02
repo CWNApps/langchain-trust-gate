@@ -92,15 +92,15 @@ class MintActionReceiptInput(BaseModel):
 
 
 class MintActionReceiptTool(BaseTool):
-    """Mint a signed receipt (Ed25519 + ML-DSA-65) for a consequential agent action.
+    """Mint a signed receipt (Ed25519, plus ML-DSA-65 when the server has a post-quantum backend) for a consequential agent action.
 
     Returns a receipt dict whose integrity can be checked offline.
     Use BEFORE the action (as a pre-commit) or IMMEDIATELY AFTER (as evidence).
     """
     name: str = "trust_gate_mint_action_receipt"
     description: str = (
-        "Mint a signed receipt (Ed25519 + ML-DSA-65) for a consequential agent action. Its "
-        "integrity can be checked offline; to know who signed it, verify it with "
+        "Mint a signed receipt (Ed25519, plus ML-DSA-65 when the server has a post-quantum backend) for a consequential agent action. Its "
+        "integrity can be checked offline; to know which key signed it, verify it with "
         "expected_kid. A receipt is evidence of what was signed, not proof that the action "
         "was safe or met any requirement."
     )
@@ -236,15 +236,16 @@ class CheckEgressTool(BaseTool):
 
 # --- run_exit_drill (sovereignty v0.2.0) ------------------------------------------
 class RunExitDrillTool(BaseTool):
-    """Check vendor exit readiness: local signing, local model, local data export.
+    """Check vendor exit readiness: local signing key and local model endpoint.
 
     Informational. Returns step-by-step results and a signed receipt; signing creates the
     signing key on first use.
     """
     name: str = "trust_gate_run_exit_drill"
     description: str = (
-        "Vendor exit readiness drill. Checks the local signing key, local model access and "
-        "local data export, and signs a receipt (which creates the signing key on first use)."
+        "Vendor exit readiness drill. Checks that the local signing key works (and names the "
+        "post-quantum backend) and whether a local model endpoint is configured (it is not "
+        "contacted), and signs a receipt (which creates the signing key on first use)."
     )
 
     def _run(self, **kwargs) -> Dict[str, Any]:

@@ -2,7 +2,7 @@
 
 LangChain tools for **Trust Gate**: signed receipts for agent actions, a read-only-allowlist decision gate, an egress marker check and an exit drill.
 
-Receipts are signed Ed25519 + ML-DSA-65 by the hosted MCP server (no local signing key). A receipt's integrity can be checked offline. To know **who signed it**, verify with `expected_kid` (the kid of the server you trust): without that, anyone can generate keys and sign a receipt that verifies. The server defaults to PQ-required verify (a receipt with no verified post-quantum signature is rejected); set TRUST_GATE_REQUIRE_PQ=false on your own deployment to allow Ed25519-only receipts.
+Receipts are signed by the hosted MCP server (no local signing key) with Ed25519, plus ML-DSA-65 when the server has a post-quantum backend. A receipt's integrity can be checked offline. To know **which key signed it**, verify with `expected_kid` (the kid of the server you trust): without that, anyone can generate keys and sign a receipt that verifies. The server defaults to PQ-required verify (a receipt with no verified post-quantum signature is rejected); set TRUST_GATE_REQUIRE_PQ=false on your own deployment to allow Ed25519-only receipts.
 
 ## Install
 
@@ -36,11 +36,11 @@ export TRUST_GATE_URL="https://trust-gate-mcp.onrender.com"
 
 | Tool | Purpose |
 |---|---|
-| `trust_gate_mint_action_receipt` | Mint a signed receipt (Ed25519 + ML-DSA-65) for a consequential agent action. |
+| `trust_gate_mint_action_receipt` | Mint a signed receipt (Ed25519, plus ML-DSA-65 when the server has a post-quantum backend) for a consequential agent action. |
 | `trust_gate_verify_receipt` | Verify a receipt offline. Pass `expected_kid` to pin the signer; the result reports `signer_pinned`. |
 | `trust_gate_gate_decision` | Two-phase gate (server 0.3.0 or later). PREVIEW returns a verdict (ALLOW, DENY, ESCALATE); COMMIT signs a receipt and returns a permit, GRANTED only for ALLOW. It judges names against a read-only allowlist and does not observe or block anything. |
 | `trust_gate_check_egress` | Check data for sensitivity markers (NO_MARKERS_FOUND / INTERNAL / CONFIDENTIAL / RESTRICTED) before it leaves. It flags and cannot block. |
-| `trust_gate_run_exit_drill` | Vendor exit-readiness drill. Informational; it signs a receipt, which creates the signing key on first use. |
+| `trust_gate_run_exit_drill` | Vendor exit-readiness drill: checks the local signing key and whether a local model endpoint is configured. It signs a receipt, which creates the signing key on first use. |
 
 ## Compatibility
 

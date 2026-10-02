@@ -156,7 +156,8 @@ def test_verify_default_omits_expected_kid():
 
 
 WITHDRAWN = ("certificate alone", "same notary", "same-notary", "execution permit", "Blocks RESTRICTED",
-             "blocks RESTRICTED", "no side effects", "No side effects", "SLH-DSA", "defeats", "defends against")
+             "blocks RESTRICTED", "no side effects", "No side effects", "SLH-DSA", "defeats", "defends against",
+             "data export", "who signed")
 
 
 def _all_descriptions():
@@ -178,7 +179,8 @@ def test_descriptions_state_what_the_server_does_and_does_not_do():
     assert "ALLOW" in d["GateDecisionTool"] and "0.3.0" in d["GateDecisionTool"]
     assert "does not observe or block" in d["GateDecisionTool"]
     assert "cannot block" in d["CheckEgressTool"] and "NO_MARKERS_FOUND" in d["CheckEgressTool"]
-    assert "signs a receipt" in d["RunExitDrillTool"]
+    assert "signs a receipt" in d["RunExitDrillTool"] and "local signing key" in d["RunExitDrillTool"]
+    assert "not contacted" in d["RunExitDrillTool"]
 
 
 def test_version_is_030_everywhere():

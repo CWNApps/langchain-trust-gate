@@ -1,6 +1,6 @@
 """LangChain `BaseTool` wrappers around the hosted Trust Gate MCP server.
 
-Tools that any LangChain agent can `bind_tools` with. Receipts are signed Ed25519 + ML-DSA-65; their integrity
+Tools that any LangChain agent can `bind_tools` with. Receipts are signed with Ed25519, plus ML-DSA-65 when the server has a post-quantum backend; their integrity
 can be checked offline, and the signer is pinned with `expected_kid`.
 
 Transport: each tool invocation makes ONE HTTPS POST to the live MCP endpoint and ONE
@@ -67,6 +67,19 @@ def _mcp_call(method: str, arguments: Dict[str, Any], *, timeout: float = 30.0) 
     return result if isinstance(result, dict) else {"raw": result}
 
 
+def _require_pin_reported(out: Dict[str, Any], expected_kid: Optional[str]) -> Dict[str, Any]:
+    """A server older than 0.3.0 drops arguments it does not know, so a pin it never checked would look
+    like a pass. When a pin was requested and the server accepted the receipt without reporting
+    signer_pinned, raise instead. A refusal (ok false, or an error) is passed through with its reason."""
+    if expected_kid is None:
+        return out
+    body = out.get("result") if isinstance(out.get("result"), dict) else out
+    if isinstance(body, dict) and (body.get("ok") is False or "error" in body or "signer_pinned" in body):
+        return out
+    raise RuntimeError("Trust Gate server did not report signer_pinned, so it ignored expected_kid "
+                       "(it needs Trust Gate MCP 0.3.0 or later). Do not treat this receipt as pinned.")
+
+
 def _ping_telemetry(kind: str = "api") -> None:
     """Fire-and-forget channel-attribution ping. Never blocks the tool's return value."""
     try:
@@ -131,7 +144,8 @@ class VerifyReceiptInput(BaseModel):
         description="None=obey the server's TRUST_GATE_REQUIRE_PQ (default true). True=fail unless a post-quantum signature verifies. False=Ed25519-only is accepted.")
     expected_kid: Optional[str] = Field(
         default=None,
-        description="kid of the signer you trust (32 hex characters). When set, verification also requires that the receipt was signed by that key; the result reports signer_pinned.")
+        description="kid of the signer you trust (32 hex characters). When set, verification also requires that the receipt was signed by that key; the result reports signer_pinned. Needs Trust Gate MCP server 0.3.0 or later: an older server "
+        "ignores it, so this tool raises an error if the server does not report signer_pinned.")
 
 
 class VerifyReceiptTool(BaseTool):
@@ -145,7 +159,8 @@ class VerifyReceiptTool(BaseTool):
         "Verify a Trust Gate receipt from the receipt itself (offline). Returns ok plus the "
         "values it checked and signer_pinned. Pass expected_kid, the kid of the server you "
         "trust, to pin the signer: without it anyone's receipt can verify. With require_pq on "
-        "(the server default) it fails unless a post-quantum signature verifies."
+        "(the server default) it fails unless a post-quantum signature verifies. "
+        "expected_kid needs server 0.3.0 or later: with an older server this tool raises an error instead of reporting a pin."
     )
     args_schema: Type[BaseModel] = VerifyReceiptInput
 
@@ -158,7 +173,7 @@ class VerifyReceiptTool(BaseTool):
             args["require_pq"] = require_pq
         if expected_kid is not None:
             args["expected_kid"] = expected_kid
-        return _mcp_call("verify_receipt", args)
+        return _require_pin_reported(_mcp_call("verify_receipt", args), expected_kid)
 
 
 # --- gate_decision (sovereignty v0.2.0) -------------------------------------------

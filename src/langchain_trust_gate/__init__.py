@@ -12,7 +12,7 @@ Five tools, all backed by the hosted Trust Gate MCP server:
                                before it leaves; it cannot block.
   RunExitDrillTool        -- vendor exit-readiness drill. Informational; it signs a receipt.
 
-Receipts are signed Ed25519 + ML-DSA-65 via the upstream OpenAgentOntology primitive.
+Receipts are signed with Ed25519, plus ML-DSA-65 when the server has a post-quantum backend via the upstream OpenAgentOntology primitive.
 Verification defaults to PQ-required mode, which rejects a receipt with no verified
 post-quantum signature. Pin the signer with expected_kid.
 

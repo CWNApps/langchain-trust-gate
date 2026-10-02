@@ -170,7 +170,7 @@ def _all_descriptions():
 def test_no_description_makes_a_claim_the_server_withdrew():
     for name, text in _all_descriptions().items():
         for phrase in WITHDRAWN:
-            assert phrase not in text, (name, phrase)
+            assert phrase.lower() not in text.lower(), (name, phrase)
 
 
 def test_descriptions_state_what_the_server_does_and_does_not_do():
@@ -189,3 +189,47 @@ def test_version_is_030_everywhere():
     toml = (pathlib.Path(__file__).resolve().parents[1] / "pyproject.toml").read_text(encoding="utf-8")
     assert pkg.__version__ == "0.3.0"
     assert re.search(r'^version = "0.3.0"', toml, re.M)
+
+
+# ---- an older server must not make a requested pin look like a pass ------------------------------
+KID = "0123456789abcdef0123456789abcdef"
+
+
+def _verify_with_response(structured, **kw):
+    with patch("httpx.Client.post", return_value=_mcp_response(structured)), patch("httpx.Client.get", return_value=MagicMock()):
+        return VerifyReceiptTool()._run(receipt={"atom_id": "x"}, expected_kid=KID)
+
+
+def test_a_server_that_ignores_expected_kid_makes_the_tool_raise():
+    for structured in ({"ok": True, "reason": "verified"}, {"result": {"ok": True, "reason": "verified"}}):
+        with pytest.raises(RuntimeError, match="expected_kid"):
+            _verify_with_response(structured)
+
+
+def test_a_server_that_reports_the_pin_passes_through_unchanged():
+    for structured in ({"ok": True, "signer_pinned": True}, {"result": {"ok": True, "signer_pinned": False}}):
+        assert _verify_with_response(structured) == structured
+
+
+def test_a_refusal_keeps_its_reason_instead_of_being_replaced_by_the_pin_error():
+    refusal = {"ok": False, "reason": "signer mismatch"}
+    assert _verify_with_response(refusal) == refusal
+    assert _verify_with_response({"error": "expected_kid must be 32 hex characters"}) == {"error": "expected_kid must be 32 hex characters"}
+
+
+def test_without_expected_kid_no_pin_report_is_required():
+    structured = {"ok": True, "reason": "verified"}
+    with patch("httpx.Client.post", return_value=_mcp_response(structured)), patch("httpx.Client.get", return_value=MagicMock()):
+        assert VerifyReceiptTool()._run(receipt={"atom_id": "x"}) == structured
+
+
+def test_gate_decision_sends_the_required_context():
+    captured = {}
+    def fake_post(self, url, json=None, **kw):
+        captured["args"] = json["params"]["arguments"]
+        return _mcp_response({"verdict": "ALLOW"})
+    from langchain_trust_gate import GateDecisionTool
+    with patch("httpx.Client.post", new=fake_post), patch("httpx.Client.get", return_value=MagicMock()):
+        GateDecisionTool()._run(action="read_file", resource="docs/readme.md", context={"k": 1})
+    assert captured["args"]["context"] == {"k": 1}
+    assert captured["args"]["action"] == "read_file" and captured["args"]["resource"] == "docs/readme.md"

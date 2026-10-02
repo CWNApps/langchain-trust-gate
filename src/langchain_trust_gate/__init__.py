@@ -1,20 +1,20 @@
-"""langchain-trust-gate -- LangChain tools for Trust Gate post-quantum receipts.
+"""langchain-trust-gate -- LangChain tools for Trust Gate signed receipts.
 
 Five tools, all backed by the hosted Trust Gate MCP server:
 
   MintActionReceiptTool   -- mints a tamper-evident receipt for any consequential agent
                               action (deploy, send_email, charge_card, write_db, ...).
-  VerifyReceiptTool       -- verifies a Trust Gate receipt from its certificate alone.
-  GateDecisionTool        -- two-phase PREVIEW -> COMMIT gate; PREVIEW assesses risk
-                              without acting, COMMIT verifies the inputs still match
-                              and mints a receipt carrying an execution permit.
-  CheckEgressTool         -- classifies data PUBLIC/INTERNAL/CONFIDENTIAL/RESTRICTED
-                              before it leaves; blocks RESTRICTED.
-  RunExitDrillTool        -- vendor exit-readiness drill. Informational, no side effects.
+  VerifyReceiptTool       -- verifies a Trust Gate receipt; pass expected_kid to pin the signer.
+  GateDecisionTool        -- two-phase PREVIEW -> COMMIT gate; PREVIEW returns a verdict
+                               (ALLOW, DENY, ESCALATE), COMMIT signs a receipt and returns
+                               a permit (GRANTED only for ALLOW).
+  CheckEgressTool         -- flags data NO_MARKERS_FOUND/INTERNAL/CONFIDENTIAL/RESTRICTED
+                               before it leaves; it cannot block.
+  RunExitDrillTool        -- vendor exit-readiness drill. Informational; it signs a receipt.
 
-Receipts are signed Ed25519 + ML-DSA-65 (FIPS 204) via the upstream OpenAgentOntology
-primitive. Verification defaults to PQ-required mode, which demands at least one verified
-post-quantum leg and so defeats Ed25519-only downgrade attacks.
+Receipts are signed with Ed25519, plus ML-DSA-65 when the server has a post-quantum backend via the upstream OpenAgentOntology primitive.
+Verification defaults to PQ-required mode, which rejects a receipt with no verified
+post-quantum signature. Pin the signer with expected_kid.
 
 Usage:
     from langchain_trust_gate import MintActionReceiptTool, VerifyReceiptTool
@@ -28,7 +28,7 @@ from langchain_trust_gate.tool import (
     VerifyReceiptTool,
 )
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 __all__ = [
     "MintActionReceiptTool",
     "VerifyReceiptTool",

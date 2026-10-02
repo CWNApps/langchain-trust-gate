@@ -7,9 +7,7 @@ name: Publish to PyPI
 #   workflow    = release.yml
 #   environment = pypi
 #
-# All third-party actions pinned to full SHA per pol.ops.security_pipeline.
-# Codex APPROVE-WITH-EDITS applied (pol.must_do.150) -- adversarial review fixes
-# below were captured in the commit message that introduces this workflow.
+# All third-party actions are pinned to a full commit SHA.
 
 on:
   push:
@@ -33,8 +31,6 @@ jobs:
     runs-on: ubuntu-latest
     # A tag push publishes to PyPI, and a PyPI version can never be replaced --
     # only yanked. So the suite gates the build rather than running beside it.
-    # Added after a sibling repo (trust-gate-mcp) was found to have shipped with
-    # an uncollectable suite for a month because nothing ever ran it in CI.
     if: github.repository_owner == 'CWNApps'
     permissions:
       contents: read
